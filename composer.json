@@ -1,0 +1,99 @@
+{
+    "name": "dhruvilnagar/laravel-action-engine",
+    "description": "A powerful Laravel package for managing bulk operations with queue support, progress tracking, undo functionality, scheduled execution, and comprehensive audit trails.",
+    "keywords": [
+        "laravel",
+        "laravel-package",
+        "bulk-actions",
+        "bulk-operations",
+        "queue",
+        "batch-processing",
+        "progress-tracking",
+        "undo-redo",
+        "scheduled-actions",
+        "audit-trail",
+        "filament",
+        "livewire",
+        "vue",
+        "react",
+        "eloquent",
+        "database"
+    ],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Dhruvil Nagar",
+            "email": "ddhruvill264@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://github.com/dhruvilnagar/laravel-action-engine",
+    "support": {
+        "issues": "https://github.com/dhruvilnagar/laravel-action-engine/issues",
+        "source": "https://github.com/dhruvilnagar/laravel-action-engine"
+    },
+    "require": {
+        "php": "^8.1",
+        "illuminate/contracts": "^10.0|^11.0",
+        "illuminate/database": "^10.0|^11.0",
+        "illuminate/queue": "^10.0|^11.0",
+        "illuminate/support": "^10.0|^11.0",
+        "illuminate/events": "^10.0|^11.0",
+        "illuminate/http": "^10.0|^11.0",
+        "illuminate/routing": "^10.0|^11.0",
+        "illuminate/console": "^10.0|^11.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0",
+        "phpunit/phpunit": "^10.0|^11.0",
+        "laravel/dusk": "^7.0|^8.0",
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^1.10",
+        "laravel/pint": "^1.0"
+    },
+    "suggest": {
+        "livewire/livewire": "Required for Livewire components (^3.0)",
+        "filament/filament": "Required for Filament integration (^3.0)",
+        "pusher/pusher-php-server": "Required for Pusher broadcasting",
+        "maatwebsite/excel": "Required for Excel export functionality (^3.1)",
+        "barryvdh/laravel-dompdf": "Required for PDF export functionality (^2.0)"
+    },
+    "autoload": {
+        "psr-4": {
+            "DhruvilNagar\\ActionEngine\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "DhruvilNagar\\ActionEngine\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test:unit": "vendor/bin/phpunit --testsuite=Unit",
+        "test:feature": "vendor/bin/phpunit --testsuite=Feature",
+        "test:coverage": "vendor/bin/phpunit --coverage-html coverage",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "DhruvilNagar\\ActionEngine\\ActionEngineServiceProvider"
+            ],
+            "aliases": {
+                "BulkAction": "DhruvilNagar\\ActionEngine\\Facades\\BulkAction",
+                "ActionRegistry": "DhruvilNagar\\ActionEngine\\Facades\\ActionRegistry"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
