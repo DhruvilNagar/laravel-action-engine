@@ -4,7 +4,7 @@ A powerful, framework-agnostic Laravel package for managing bulk operations with
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/dhruvilnagar/laravel-action-engine.svg?style=flat-square)](https://packagist.org/packages/dhruvilnagar/laravel-action-engine)
 [![Total Downloads](https://img.shields.io/packagist/dt/dhruvilnagar/laravel-action-engine.svg?style=flat-square)](https://packagist.org/packages/dhruvilnagar/laravel-action-engine)
-[![License](https://img.shields.io/packagist/l/dhruvilnagar/laravel-action-engine.svg?style=flat-square)](https://packagist.org/packages/dhruvilnagar/laravel-action-engine)
+[![License](https://img.shields.io/github/license/DhruvilNagar/laravel-action-engine.svg?style=flat-square)](https://github.com/DhruvilNagar/laravel-action-engine/blob/main/LICENSE)
 
 ## ✨ Features
 
