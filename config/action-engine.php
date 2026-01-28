@@ -241,4 +241,86 @@ return [
         'default_gate' => null, // Default gate ability to check
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Safety Features Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure safety features for destructive operations.
+    |
+    */
+    'safety' => [
+        'destructive_actions' => ['delete', 'force_delete', 'truncate'],
+        'require_confirmation' => true,
+        'soft_delete_before_hard_delete' => true,
+        'enable_record_locking' => true,
+        'rollback_on_partial_failure' => true,
+        'require_dry_run_first_time' => true,
+        'confirmation_threshold' => 1000, // Require typing confirmation for > 1000 records
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Monitoring & Observability Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure monitoring and observability integrations.
+    |
+    */
+    'monitoring' => [
+        'enabled' => env('ACTION_ENGINE_MONITORING_ENABLED', true),
+        'driver' => env('ACTION_ENGINE_MONITORING_DRIVER', 'log'),
+        
+        // Telescope integration
+        'telescope' => [
+            'enabled' => class_exists(\Laravel\Telescope\Telescope::class),
+        ],
+        
+        // Sentry error tracking
+        'sentry' => [
+            'enabled' => env('SENTRY_ENABLED', false),
+        ],
+        
+        // Bugsnag error tracking
+        'bugsnag' => [
+            'enabled' => env('BUGSNAG_ENABLED', false),
+        ],
+        
+        // Datadog APM
+        'datadog' => [
+            'enabled' => env('DATADOG_ENABLED', false),
+            'host' => env('DATADOG_HOST', '127.0.0.1'),
+            'port' => env('DATADOG_PORT', 8125),
+        ],
+        
+        // Prometheus metrics
+        'prometheus' => [
+            'enabled' => env('PROMETHEUS_ENABLED', false),
+        ],
+        
+        // Alert thresholds
+        'alerts' => [
+            'queue_threshold' => 100,
+            'failed_jobs_threshold' => 10,
+            'stuck_execution_hours' => 1,
+            'disk_usage_percentage' => 90,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Performance Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure performance-related settings.
+    |
+    */
+    'performance' => [
+        'enable_compression' => true, // Compress undo snapshots
+        'enable_deduplication' => true, // Only store changed fields
+        'cache_progress' => true, // Cache progress data
+        'cache_ttl' => 300, // Cache TTL in seconds
+        'max_retries' => 3, // Maximum retry attempts for failed batches
+    ],
+
 ];

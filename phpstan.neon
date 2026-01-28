@@ -1,0 +1,27 @@
+includes:
+    - ./vendor/phpstan/phpstan/conf/bleedingEdge.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+    excludePaths:
+        - src/Console/Commands
+    tmpDir: .phpstan
+    checkMissingIterableValueType: true
+    checkGenericClassInNonGenericObjectType: true
+    reportUnmatchedIgnoredErrors: true
+    
+    # Laravel-specific configurations
+    ignoreErrors:
+        # Allow mixed types for Eloquent model attributes
+        - '#Cannot access property \$\w+ on mixed#'
+        # Allow dynamic properties on Eloquent models
+        - '#Access to an undefined property [a-zA-Z0-9\\_]+::\$\w+#'
+        # Allow Facade static calls
+        - '#Call to an undefined static method Illuminate\\Support\\Facades\\[a-zA-Z]+::[a-zA-Z]+\(\)#'
+        
+    # Uncomment these as needed for stricter analysis
+    # checkExplicitMixedMissingReturn: true
+    # checkPhpDocMissingReturn: true
+    # checkTooWideReturnTypesInProtectedAndPublicMethods: true

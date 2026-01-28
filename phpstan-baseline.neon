@@ -1,0 +1,7 @@
+# PHPStan baseline file
+# Generated automatically - do not edit manually
+# Run: vendor/bin/phpstan analyse --generate-baseline
+# This file contains exceptions for existing code that doesn't pass PHPStan level 8
+# All new code should pass without adding to this baseline
+
+parameters:
