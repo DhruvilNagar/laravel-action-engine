@@ -1,0 +1,73 @@
+<?php
+
+namespace {{ namespace }};
+
+use Livewire\Component;
+use Livewire\WithPagination;
+use DhruvilNagar\ActionEngine\Models\BulkActionExecution;
+use Illuminate\Support\Facades\Auth;
+
+class BulkActionHistory extends Component
+{
+    use WithPagination;
+
+    public $modelClass;
+    public $status;
+    public $perPage = 10;
+
+    protected $queryString = [
+        'status' => ['except' => ''],
+    ];
+
+    public function mount($modelClass = null)
+    {
+        $this->modelClass = $modelClass;
+    }
+
+    public function filterByStatus($status)
+    {
+        $this->status = $status;
+        $this->resetPage();
+    }
+
+    public function clearFilter()
+    {
+        $this->status = '';
+        $this->resetPage();
+    }
+
+    public function getExecutionsProperty()
+    {
+        $query = BulkActionExecution::query()
+            ->when($this->modelClass, fn($q) => $q->where('model_class', $this->modelClass))
+            ->when($this->status, fn($q) => $q->where('status', $this->status))
+            ->when(Auth::check(), fn($q) => $q->where('user_id', Auth::id()))
+            ->latest();
+
+        return $query->paginate($this->perPage);
+    }
+
+    public function viewDetails($uuid)
+    {
+        return redirect()->route('bulk-actions.show', $uuid);
+    }
+
+    public function downloadExport($uuid)
+    {
+        $execution = BulkActionExecution::where('uuid', $uuid)->firstOrFail();
+        
+        if (!$execution->export_path) {
+            session()->flash('error', 'No export file available');
+            return;
+        }
+
+        return redirect()->route('bulk-actions.download', $uuid);
+    }
+
+    public function render()
+    {
+        return view('livewire.bulk-action-history', [
+            'executions' => $this->executions,
+        ]);
+    }
+}

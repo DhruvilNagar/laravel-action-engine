@@ -1,0 +1,255 @@
+<?php
+
+namespace {{ namespace }};
+
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components;
+use DhruvilNagar\ActionEngine\Models\BulkActionExecution;
+use Filament\Resources\Pages\ListRecords;
+use Filament\Resources\Pages\ViewRecord;
+
+class BulkActionResource extends Resource
+{
+    protected static ?string $model = BulkActionExecution::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-queue-list';
+
+    protected static ?string $navigationLabel = 'Bulk Actions';
+
+    protected static ?string $navigationGroup = 'System';
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('uuid')
+                    ->label('ID')
+                    ->searchable()
+                    ->copyable()
+                    ->limit(8),
+                    
+                Tables\Columns\TextColumn::make('action_name')
+                    ->label('Action')
+                    ->badge()
+                    ->searchable(),
+                    
+                Tables\Columns\TextColumn::make('model_class')
+                    ->label('Model')
+                    ->formatStateUsing(fn ($state) => class_basename($state))
+                    ->searchable(),
+                    
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending' => 'gray',
+                        'processing' => 'warning',
+                        'completed' => 'success',
+                        'failed' => 'danger',
+                        'cancelled' => 'secondary',
+                        default => 'gray',
+                    }),
+                    
+                Tables\Columns\TextColumn::make('total_records')
+                    ->label('Total')
+                    ->numeric(),
+                    
+                Tables\Columns\TextColumn::make('processed_records')
+                    ->label('Processed')
+                    ->numeric(),
+                    
+                Tables\Columns\TextColumn::make('failed_records')
+                    ->label('Failed')
+                    ->numeric()
+                    ->color('danger'),
+                    
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('User')
+                    ->searchable()
+                    ->toggleable(),
+                    
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Started')
+                    ->dateTime()
+                    ->sortable(),
+                    
+                Tables\Columns\TextColumn::make('completed_at')
+                    ->label('Completed')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'processing' => 'Processing',
+                        'completed' => 'Completed',
+                        'failed' => 'Failed',
+                        'cancelled' => 'Cancelled',
+                    ]),
+                    
+                Tables\Filters\SelectFilter::make('action_name')
+                    ->label('Action')
+                    ->options(function () {
+                        return BulkActionExecution::distinct('action_name')
+                            ->pluck('action_name', 'action_name')
+                            ->toArray();
+                    }),
+                    
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from'),
+                        Forms\Components\DatePicker::make('created_until'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+                
+                Tables\Actions\Action::make('undo')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->requiresConfirmation()
+                    ->visible(fn (BulkActionExecution $record) => $record->canUndo())
+                    ->action(function (BulkActionExecution $record) {
+                        try {
+                            ActionEngine::undo($record->uuid);
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Action undone successfully')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Failed to undo action')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
+                    
+                Tables\Actions\Action::make('cancel')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(fn (BulkActionExecution $record) => in_array($record->status, ['pending', 'processing']))
+                    ->action(function (BulkActionExecution $record) {
+                        try {
+                            ActionEngine::cancel($record->uuid);
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Action cancelled successfully')
+                                ->send();
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Failed to cancel action')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
+                    
+                Tables\Actions\Action::make('download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->visible(fn (BulkActionExecution $record) => !empty($record->export_path))
+                    ->url(fn (BulkActionExecution $record) => route('bulk-actions.download', $record->uuid)),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('created_at', 'desc');
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Components\Section::make('Execution Details')
+                    ->schema([
+                        Components\TextEntry::make('uuid')
+                            ->label('UUID')
+                            ->copyable(),
+                        Components\TextEntry::make('action_name')
+                            ->label('Action Name')
+                            ->badge(),
+                        Components\TextEntry::make('model_class')
+                            ->label('Model'),
+                        Components\TextEntry::make('status')
+                            ->badge()
+                            ->color(fn (string $state): string => match ($state) {
+                                'pending' => 'gray',
+                                'processing' => 'warning',
+                                'completed' => 'success',
+                                'failed' => 'danger',
+                                'cancelled' => 'secondary',
+                                default => 'gray',
+                            }),
+                        Components\TextEntry::make('user.name')
+                            ->label('User'),
+                    ])
+                    ->columns(2),
+                    
+                Components\Section::make('Progress')
+                    ->schema([
+                        Components\TextEntry::make('total_records')
+                            ->label('Total Records'),
+                        Components\TextEntry::make('processed_records')
+                            ->label('Processed'),
+                        Components\TextEntry::make('successful_records')
+                            ->label('Successful'),
+                        Components\TextEntry::make('failed_records')
+                            ->label('Failed'),
+                    ])
+                    ->columns(4),
+                    
+                Components\Section::make('Timing')
+                    ->schema([
+                        Components\TextEntry::make('created_at')
+                            ->label('Started At')
+                            ->dateTime(),
+                        Components\TextEntry::make('completed_at')
+                            ->label('Completed At')
+                            ->dateTime(),
+                        Components\TextEntry::make('scheduled_at')
+                            ->label('Scheduled At')
+                            ->dateTime()
+                            ->visible(fn ($record) => $record->scheduled_at),
+                    ])
+                    ->columns(3),
+                    
+                Components\Section::make('Parameters')
+                    ->schema([
+                        Components\TextEntry::make('parameters')
+                            ->formatStateUsing(fn ($state) => json_encode($state, JSON_PRETTY_PRINT))
+                            ->html()
+                            ->label(''),
+                    ])
+                    ->visible(fn ($record) => !empty($record->parameters)),
+                    
+                Components\Section::make('Error Details')
+                    ->schema([
+                        Components\TextEntry::make('error_message')
+                            ->label('')
+                            ->color('danger'),
+                    ])
+                    ->visible(fn ($record) => $record->status === 'failed' && $record->error_message),
+            ]);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListRecords::route('/'),
+            'view' => ViewRecord::route('/{record}'),
+        ];
+    }
+}

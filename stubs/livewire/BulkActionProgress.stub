@@ -1,0 +1,70 @@
+<?php
+
+namespace {{ namespace }};
+
+use Livewire\Component;
+use Livewire\Attributes\On;
+use DhruvilNagar\ActionEngine\Models\BulkActionExecution;
+
+class BulkActionProgress extends Component
+{
+    public $executionUuid;
+    public $execution;
+    public $refreshInterval = 2000; // milliseconds
+
+    public function mount($executionUuid)
+    {
+        $this->executionUuid = $executionUuid;
+        $this->loadExecution();
+    }
+
+    public function loadExecution()
+    {
+        $this->execution = BulkActionExecution::where('uuid', $this->executionUuid)
+            ->with('progress')
+            ->first();
+    }
+
+    #[On('echo:bulk-actions.{executionUuid},BulkActionProgress')]
+    public function updateProgress($event)
+    {
+        $this->loadExecution();
+    }
+
+    #[On('echo:bulk-actions.{executionUuid},BulkActionCompleted')]
+    public function actionCompleted($event)
+    {
+        $this->loadExecution();
+        $this->dispatch('action-completed');
+    }
+
+    #[On('echo:bulk-actions.{executionUuid},BulkActionFailed')]
+    public function actionFailed($event)
+    {
+        $this->loadExecution();
+        $this->dispatch('action-failed');
+    }
+
+    public function getProgressPercentageProperty()
+    {
+        if (!$this->execution || !$this->execution->total_records) {
+            return 0;
+        }
+
+        return round(($this->execution->processed_records / $this->execution->total_records) * 100, 2);
+    }
+
+    public function getEstimatedTimeRemainingProperty()
+    {
+        if (!$this->execution || !$this->execution->progress) {
+            return null;
+        }
+
+        return $this->execution->progress->estimated_time_remaining;
+    }
+
+    public function render()
+    {
+        return view('livewire.bulk-action-progress');
+    }
+}

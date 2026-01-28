@@ -1,0 +1,110 @@
+<?php
+
+namespace {{ namespace }};
+
+use Livewire\Component;
+use Livewire\Attributes\On;
+use DhruvilNagar\ActionEngine\Facades\ActionEngine;
+use DhruvilNagar\ActionEngine\Models\BulkActionExecution;
+use Illuminate\Support\Facades\Auth;
+
+class BulkActionManager extends Component
+{
+    public $modelClass;
+    public $selectedIds = [];
+    public $action;
+    public $parameters = [];
+    public $showModal = false;
+    public $executionUuid;
+    public $currentExecution;
+    
+    public function mount($modelClass = null)
+    {
+        $this->modelClass = $modelClass;
+    }
+
+    public function executeAction()
+    {
+        $this->validate([
+            'action' => 'required',
+            'selectedIds' => 'required|array|min:1',
+        ]);
+
+        try {
+            $execution = ActionEngine::on($this->modelClass)
+                ->action($this->action)
+                ->whereIn('id', $this->selectedIds)
+                ->parameters($this->parameters)
+                ->withProgress()
+                ->execute();
+
+            $this->executionUuid = $execution->uuid;
+            $this->currentExecution = $execution;
+            
+            $this->dispatch('action-started', uuid: $execution->uuid);
+            
+            session()->flash('message', 'Bulk action started successfully!');
+            
+        } catch (\Exception $e) {
+            $this->dispatch('action-failed', error: $e->getMessage());
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    #[On('echo:bulk-actions.{executionUuid},BulkActionProgress')]
+    public function updateProgress($event)
+    {
+        $this->currentExecution = BulkActionExecution::where('uuid', $this->executionUuid)->first();
+    }
+
+    #[On('echo:bulk-actions.{executionUuid},BulkActionCompleted')]
+    public function actionCompleted($event)
+    {
+        $this->currentExecution = BulkActionExecution::where('uuid', $this->executionUuid)->first();
+        $this->dispatch('action-completed');
+        session()->flash('message', 'Bulk action completed successfully!');
+    }
+
+    #[On('echo:bulk-actions.{executionUuid},BulkActionFailed')]
+    public function actionFailed($event)
+    {
+        $this->currentExecution = BulkActionExecution::where('uuid', $this->executionUuid)->first();
+        $this->dispatch('action-failed');
+        session()->flash('error', 'Bulk action failed: ' . ($event['error'] ?? 'Unknown error'));
+    }
+
+    public function undoAction()
+    {
+        if (!$this->currentExecution || !$this->currentExecution->canUndo()) {
+            session()->flash('error', 'Cannot undo this action');
+            return;
+        }
+
+        try {
+            ActionEngine::undo($this->currentExecution->uuid);
+            session()->flash('message', 'Action undone successfully!');
+            $this->currentExecution = null;
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to undo action: ' . $e->getMessage());
+        }
+    }
+
+    public function cancelAction()
+    {
+        if (!$this->currentExecution) {
+            return;
+        }
+
+        try {
+            ActionEngine::cancel($this->currentExecution->uuid);
+            session()->flash('message', 'Action cancelled successfully!');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to cancel action: ' . $e->getMessage());
+        }
+    }
+
+    public function render()
+    {
+        return view('livewire.bulk-action-manager');
+    }
+}

@@ -1,0 +1,61 @@
+<?php
+
+namespace {{ namespace }};
+
+use Filament\Widgets\StatsOverviewWidget as BaseWidget;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+use DhruvilNagar\ActionEngine\Models\BulkActionExecution;
+use Illuminate\Support\Facades\DB;
+
+class BulkActionStatsWidget extends BaseWidget
+{
+    protected function getStats(): array
+    {
+        $today = now()->startOfDay();
+        $thisWeek = now()->startOfWeek();
+        $thisMonth = now()->startOfMonth();
+
+        return [
+            Stat::make('Total Executions', BulkActionExecution::count())
+                ->description('All time')
+                ->descriptionIcon('heroicon-m-arrow-trending-up')
+                ->color('primary'),
+
+            Stat::make('Active Actions', BulkActionExecution::whereIn('status', ['pending', 'processing'])->count())
+                ->description('Currently running')
+                ->descriptionIcon('heroicon-m-play')
+                ->color('warning'),
+
+            Stat::make('Completed Today', BulkActionExecution::where('status', 'completed')->whereDate('completed_at', $today)->count())
+                ->description('24 hours')
+                ->descriptionIcon('heroicon-m-check-circle')
+                ->color('success'),
+
+            Stat::make('Failed Actions', BulkActionExecution::where('status', 'failed')->count())
+                ->description('Requires attention')
+                ->descriptionIcon('heroicon-m-x-circle')
+                ->color('danger'),
+
+            Stat::make('Records Processed Today', BulkActionExecution::whereDate('created_at', $today)->sum('processed_records'))
+                ->description('Today')
+                ->descriptionIcon('heroicon-m-document-text')
+                ->color('info'),
+
+            Stat::make('Avg Processing Time', function () {
+                $avgSeconds = BulkActionExecution::where('status', 'completed')
+                    ->whereNotNull('completed_at')
+                    ->selectRaw('AVG(TIMESTAMPDIFF(SECOND, created_at, completed_at)) as avg_time')
+                    ->value('avg_time');
+
+                if (!$avgSeconds) {
+                    return 'N/A';
+                }
+
+                return round($avgSeconds, 1) . 's';
+            })
+                ->description('Per action')
+                ->descriptionIcon('heroicon-m-clock')
+                ->color('secondary'),
+        ];
+    }
+}

@@ -1,0 +1,56 @@
+<?php
+
+namespace {{ namespace }};
+
+use Filament\Tables\Actions\BulkAction;
+use DhruvilNagar\ActionEngine\Facades\ActionEngine;
+use Illuminate\Database\Eloquent\Collection;
+use Filament\Notifications\Notification;
+
+class {{ class }} extends BulkAction
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->label('{{ label }}');
+        
+        $this->icon('{{ icon }}');
+        
+        $this->requiresConfirmation();
+        
+        $this->modalHeading('{{ modalHeading }}');
+        
+        $this->modalDescription('{{ modalDescription }}');
+        
+        $this->modalButton('{{ modalButton }}');
+
+        $this->action(function (Collection $records) {
+            try {
+                $execution = ActionEngine::on({{ model }}::class)
+                    ->action('{{ actionName }}')
+                    ->whereIn('id', $records->pluck('id')->toArray())
+                    ->parameters({{ parameters }})
+                    ->withProgress()
+                    ->withUndo({{ undoDays }})
+                    ->execute();
+
+                Notification::make()
+                    ->success()
+                    ->title('Bulk action started')
+                    ->body("Processing {$execution->total_records} records.")
+                    ->send();
+
+                // Optionally redirect to progress page
+                // redirect()->route('bulk-actions.show', $execution->uuid);
+
+            } catch (\Exception $e) {
+                Notification::make()
+                    ->danger()
+                    ->title('Bulk action failed')
+                    ->body($e->getMessage())
+                    ->send();
+            }
+        });
+    }
+}

@@ -321,6 +321,27 @@ return [
         'cache_progress' => true, // Cache progress data
         'cache_ttl' => 300, // Cache TTL in seconds
         'max_retries' => 3, // Maximum retry attempts for failed batches
+        
+        // Memory optimization
+        'memory_threshold' => 0.8, // Trigger memory optimization at 80% usage
+        'min_batch_size' => 10, // Minimum batch size when memory is constrained
+        'max_batch_size' => 10000, // Maximum batch size
+        'auto_adjust_batch_size' => true, // Automatically adjust based on memory
+        'chunk_size' => 100, // Database query chunk size
+        'memory_limit' => env('ACTION_ENGINE_MEMORY_LIMIT', '512M'), // PHP memory limit
+        'gc_threshold' => 0.75, // Trigger garbage collection at 75%
+        'clear_query_log' => true, // Clear query log to save memory
+        
+        // Database optimization
+        'use_cursor' => true, // Use database cursor for large datasets
+        'disable_model_events' => true, // Disable model events during bulk operations
+        'disable_timestamps' => false, // Optionally disable timestamps
+        'select_only_needed_columns' => true, // Only select required columns
+        
+        // Queue optimization
+        'queue_timeout' => 3600, // Job timeout in seconds
+        'queue_memory_limit' => '1G', // Memory limit for queued jobs
+        'release_job_on_memory_limit' => true, // Release job if approaching memory limit
     ],
 
 ];
