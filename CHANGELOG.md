@@ -42,7 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - N/A
 
 ### Fixed
-- N/A
+- Migration `2024_01_28_000001_add_improvements_to_action_engine_tables.php` now properly checks for column and index existence before creating them
+- Fixed incorrect column references (`created_by` → `user_id`, `action_type` → `action_name`) in improvement migration
+- Fixed incorrect column references in progress table (`execution_id` → `bulk_action_execution_id`)
+- Prevented duplicate index creation errors by checking index existence before adding
+- Added proper support for configurable database connections and table names
 
 ### Security
 - N/A

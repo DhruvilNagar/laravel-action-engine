@@ -11,62 +11,102 @@ return new class extends Migration
      */
     public function up(): void
     {
+        $connection = Schema::connection(config('action-engine.database_connection'));
+        
         // Add indexes to bulk_action_executions table
-        Schema::table('bulk_action_executions', function (Blueprint $table) {
-            // Performance indexes
-            $table->index('status', 'idx_executions_status');
-            $table->index('created_by', 'idx_executions_created_by');
-            $table->index(['action_type', 'status'], 'idx_executions_action_status');
-            $table->index('created_at', 'idx_executions_created_at');
-            $table->index(['status', 'created_at'], 'idx_executions_status_created');
-            
-            // Composite index for common queries
-            $table->index(['created_by', 'action_type', 'created_at'], 
-                'idx_executions_user_action_date');
-            
-            // Add new columns for safety features
-            $table->boolean('is_locked')->default(false)->after('is_dry_run');
-            $table->timestamp('rolled_back_at')->nullable()->after('completed_at');
-            $table->unsignedTinyInteger('retry_count')->default(0)->after('failed_records');
+        $connection->table(config('action-engine.tables.executions', 'bulk_action_executions'), function (Blueprint $table) {
+            // Add new columns for safety features first
+            if (!Schema::hasColumn(config('action-engine.tables.executions', 'bulk_action_executions'), 'is_locked')) {
+                $table->boolean('is_locked')->default(false)->after('is_dry_run');
+            }
+            if (!Schema::hasColumn(config('action-engine.tables.executions', 'bulk_action_executions'), 'rolled_back_at')) {
+                $table->timestamp('rolled_back_at')->nullable()->after('completed_at');
+            }
+            if (!Schema::hasColumn(config('action-engine.tables.executions', 'bulk_action_executions'), 'retry_count')) {
+                $table->unsignedTinyInteger('retry_count')->default(0)->after('failed_records');
+            }
+        });
+        
+        // Add performance indexes - check for existence first
+        $connection->table(config('action-engine.tables.executions', 'bulk_action_executions'), function (Blueprint $table) {
+            // Only add if index doesn't already exist (avoid duplicates)
+            if (!$this->indexExists('bulk_action_executions', 'idx_executions_user_id')) {
+                $table->index('user_id', 'idx_executions_user_id');
+            }
+            if (!$this->indexExists('bulk_action_executions', 'idx_executions_action_status')) {
+                $table->index(['action_name', 'status'], 'idx_executions_action_status');
+            }
+            if (!$this->indexExists('bulk_action_executions', 'idx_executions_uuid_status')) {
+                $table->index(['uuid', 'status'], 'idx_executions_uuid_status');
+            }
+            if (!$this->indexExists('bulk_action_executions', 'idx_executions_user_action_date')) {
+                $table->index(['user_id', 'action_name', 'created_at'], 'idx_executions_user_action_date');
+            }
         });
 
         // Add indexes to bulk_action_progress table
-        Schema::table('bulk_action_progress', function (Blueprint $table) {
-            // Foreign key optimization
-            $table->index('execution_id', 'idx_progress_execution');
-            $table->index(['execution_id', 'status'], 'idx_progress_execution_status');
-            $table->index(['execution_id', 'record_id'], 'idx_progress_execution_record');
-            
-            // For finding failed records
-            $table->index(['execution_id', 'status', 'processed_at'], 
-                'idx_progress_status_processed');
+        $connection->table(config('action-engine.tables.progress', 'bulk_action_progress'), function (Blueprint $table) {
+            // Note: foreign key column is bulk_action_execution_id, not execution_id
+            if (!$this->indexExists('bulk_action_progress', 'idx_progress_execution_status_extra')) {
+                $table->index(['bulk_action_execution_id', 'batch_number'], 'idx_progress_execution_status_extra');
+            }
+            if (!$this->indexExists('bulk_action_progress', 'idx_progress_started_at')) {
+                $table->index('started_at', 'idx_progress_started_at');
+            }
+            if (!$this->indexExists('bulk_action_progress', 'idx_progress_completed_at')) {
+                $table->index('completed_at', 'idx_progress_completed_at');
+            }
         });
 
         // Add indexes to bulk_action_undo table
-        Schema::table('bulk_action_undo', function (Blueprint $table) {
-            // Foreign key and lookup optimization
-            $table->index('execution_id', 'idx_undo_execution');
-            $table->index(['execution_id', 'record_id'], 'idx_undo_execution_record');
-            $table->index(['model_type', 'record_id'], 'idx_undo_model_record');
-            
-            // For cleanup queries
-            $table->index('created_at', 'idx_undo_created_at');
-            
-            // Add compression flag
-            $table->boolean('is_compressed')->default(false)->after('original_data');
+        $connection->table(config('action-engine.tables.undo', 'bulk_action_undo'), function (Blueprint $table) {
+            // Add compression flag column
+            if (!Schema::hasColumn(config('action-engine.tables.undo', 'bulk_action_undo'), 'is_compressed')) {
+                $table->boolean('is_compressed')->default(false)->after('original_data');
+            }
+        });
+        
+        // Add additional indexes to bulk_action_undo table
+        $connection->table(config('action-engine.tables.undo', 'bulk_action_undo'), function (Blueprint $table) {
+            // Note: foreign key column is bulk_action_execution_id, not execution_id
+            if (!$this->indexExists('bulk_action_undo', 'idx_undo_undone')) {
+                $table->index(['undone', 'undone_at'], 'idx_undo_undone');
+            }
+            if (!$this->indexExists('bulk_action_undo', 'idx_undo_created_at')) {
+                $table->index('created_at', 'idx_undo_created_at');
+            }
         });
 
         // Add indexes to bulk_action_audit table
-        Schema::table('bulk_action_audit', function (Blueprint $table) {
-            // Query optimization
-            $table->index('execution_id', 'idx_audit_execution');
-            $table->index('user_id', 'idx_audit_user');
-            $table->index(['user_id', 'created_at'], 'idx_audit_user_date');
-            $table->index('created_at', 'idx_audit_created_at');
-            
-            // For compliance queries
-            $table->index(['action', 'created_at'], 'idx_audit_action_date');
+        $connection->table(config('action-engine.tables.audit', 'bulk_action_audit'), function (Blueprint $table) {
+            // Add indexes that don't already exist
+            if (!$this->indexExists('bulk_action_audit', 'idx_audit_user_date')) {
+                $table->index(['user_id', 'created_at'], 'idx_audit_user_date');
+            }
+            if (!$this->indexExists('bulk_action_audit', 'idx_audit_action_date')) {
+                $table->index(['action_name', 'created_at'], 'idx_audit_action_date');
+            }
+            if (!$this->indexExists('bulk_action_audit', 'idx_audit_was_undone')) {
+                $table->index(['was_undone', 'undone_at'], 'idx_audit_was_undone');
+            }
         });
+    }
+    
+    /**
+     * Check if an index exists on a table.
+     */
+    private function indexExists(string $table, string $indexName): bool
+    {
+        $connection = Schema::connection(config('action-engine.database_connection'));
+        $schemaManager = $connection->getDoctrineSchemaManager();
+        $tableName = config("action-engine.tables." . str_replace('bulk_action_', '', $table), $table);
+        
+        try {
+            $indexes = $schemaManager->listTableIndexes($tableName);
+            return isset($indexes[$indexName]) || isset($indexes[strtolower($indexName)]);
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
@@ -74,39 +114,73 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('bulk_action_executions', function (Blueprint $table) {
-            $table->dropIndex('idx_executions_status');
-            $table->dropIndex('idx_executions_created_by');
-            $table->dropIndex('idx_executions_action_status');
-            $table->dropIndex('idx_executions_created_at');
-            $table->dropIndex('idx_executions_status_created');
-            $table->dropIndex('idx_executions_user_action_date');
+        $connection = Schema::connection(config('action-engine.database_connection'));
+        
+        // Drop indexes from bulk_action_executions table
+        $connection->table(config('action-engine.tables.executions', 'bulk_action_executions'), function (Blueprint $table) {
+            if ($this->indexExists('bulk_action_executions', 'idx_executions_user_id')) {
+                $table->dropIndex('idx_executions_user_id');
+            }
+            if ($this->indexExists('bulk_action_executions', 'idx_executions_action_status')) {
+                $table->dropIndex('idx_executions_action_status');
+            }
+            if ($this->indexExists('bulk_action_executions', 'idx_executions_uuid_status')) {
+                $table->dropIndex('idx_executions_uuid_status');
+            }
+            if ($this->indexExists('bulk_action_executions', 'idx_executions_user_action_date')) {
+                $table->dropIndex('idx_executions_user_action_date');
+            }
             
-            $table->dropColumn(['is_locked', 'rolled_back_at', 'retry_count']);
+            // Drop added columns
+            if (Schema::hasColumn(config('action-engine.tables.executions', 'bulk_action_executions'), 'is_locked')) {
+                $table->dropColumn('is_locked');
+            }
+            if (Schema::hasColumn(config('action-engine.tables.executions', 'bulk_action_executions'), 'rolled_back_at')) {
+                $table->dropColumn('rolled_back_at');
+            }
+            if (Schema::hasColumn(config('action-engine.tables.executions', 'bulk_action_executions'), 'retry_count')) {
+                $table->dropColumn('retry_count');
+            }
         });
 
-        Schema::table('bulk_action_progress', function (Blueprint $table) {
-            $table->dropIndex('idx_progress_execution');
-            $table->dropIndex('idx_progress_execution_status');
-            $table->dropIndex('idx_progress_execution_record');
-            $table->dropIndex('idx_progress_status_processed');
+        // Drop indexes from bulk_action_progress table
+        $connection->table(config('action-engine.tables.progress', 'bulk_action_progress'), function (Blueprint $table) {
+            if ($this->indexExists('bulk_action_progress', 'idx_progress_execution_status_extra')) {
+                $table->dropIndex('idx_progress_execution_status_extra');
+            }
+            if ($this->indexExists('bulk_action_progress', 'idx_progress_started_at')) {
+                $table->dropIndex('idx_progress_started_at');
+            }
+            if ($this->indexExists('bulk_action_progress', 'idx_progress_completed_at')) {
+                $table->dropIndex('idx_progress_completed_at');
+            }
         });
 
-        Schema::table('bulk_action_undo', function (Blueprint $table) {
-            $table->dropIndex('idx_undo_execution');
-            $table->dropIndex('idx_undo_execution_record');
-            $table->dropIndex('idx_undo_model_record');
-            $table->dropIndex('idx_undo_created_at');
+        // Drop indexes and columns from bulk_action_undo table
+        $connection->table(config('action-engine.tables.undo', 'bulk_action_undo'), function (Blueprint $table) {
+            if ($this->indexExists('bulk_action_undo', 'idx_undo_undone')) {
+                $table->dropIndex('idx_undo_undone');
+            }
+            if ($this->indexExists('bulk_action_undo', 'idx_undo_created_at')) {
+                $table->dropIndex('idx_undo_created_at');
+            }
             
-            $table->dropColumn('is_compressed');
+            if (Schema::hasColumn(config('action-engine.tables.undo', 'bulk_action_undo'), 'is_compressed')) {
+                $table->dropColumn('is_compressed');
+            }
         });
 
-        Schema::table('bulk_action_audit', function (Blueprint $table) {
-            $table->dropIndex('idx_audit_execution');
-            $table->dropIndex('idx_audit_user');
-            $table->dropIndex('idx_audit_user_date');
-            $table->dropIndex('idx_audit_created_at');
-            $table->dropIndex('idx_audit_action_date');
+        // Drop indexes from bulk_action_audit table
+        $connection->table(config('action-engine.tables.audit', 'bulk_action_audit'), function (Blueprint $table) {
+            if ($this->indexExists('bulk_action_audit', 'idx_audit_user_date')) {
+                $table->dropIndex('idx_audit_user_date');
+            }
+            if ($this->indexExists('bulk_action_audit', 'idx_audit_action_date')) {
+                $table->dropIndex('idx_audit_action_date');
+            }
+            if ($this->indexExists('bulk_action_audit', 'idx_audit_was_undone')) {
+                $table->dropIndex('idx_audit_was_undone');
+            }
         });
     }
 };
